@@ -2,11 +2,6 @@
   const DEFAULT_CONFIG = {
     nvrIp: "192.168.1.100",
     port: 1935,
-    protocol: "http",
-    username: "admin",
-    password: "",
-    streamProfile: "main",
-    useWorker: false,
     cameras: []
   };
 
@@ -27,17 +22,15 @@
       throw new Error("Missing NVR IP address. Update config.js");
     }
 
-    const protocol = cfg.protocol || "http";
-    const streamProfile = (camera.streamProfile || cfg.streamProfile || "main").toLowerCase();
     const channelIndex = typeof camera.channel === "number" ? camera.channel : camera.id;
 
     if (typeof channelIndex !== "number") {
       throw new Error(`Camera ${camera.name || ""} is missing a channel number.`);
     }
 
-    const profileSuffix = streamProfile === "ext" ? "ext" : streamProfile;
-    const streamName = camera.streamName || `channel${channelIndex}_${profileSuffix}.bcs`;
-    const streamIndex = streamProfile === "sub" ? "1" : "0";
+    const streamName = camera.streamName || `channel${channelIndex}_main.bcs`;
+    const streamIndex =
+      camera.streamIndex != null ? camera.streamIndex.toString() : /_sub\b/i.test(streamName) ? "1" : "0";
 
     const playpathQuery = new URLSearchParams({
       channel: channelIndex.toString(),
@@ -50,14 +43,7 @@
       stream: `${streamName}?${playpathQuery.toString()}`
     });
 
-    if (!cfg.useProxy) {
-      if (cfg.username) params.set("user", cfg.username);
-      if (cfg.password) params.set("password", cfg.password);
-    }
-
-    const baseOrigin = cfg.useProxy
-      ? cfg.proxyOrigin || window.location.origin
-      : `${protocol}://${cfg.nvrIp}`;
+    const baseOrigin = cfg.proxyOrigin || window.location.origin;
 
     return `${baseOrigin}/flv?${params.toString()}`;
   }
@@ -118,7 +104,7 @@
           url: streamUrl
         },
         {
-          enableWorker: cfg.useWorker !== false,
+          enableWorker: false,
           enableStashBuffer: false
         }
       );

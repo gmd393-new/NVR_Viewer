@@ -1,70 +1,77 @@
 # Reolink NVR Viewer
 
-A tiny static page that renders up to four Reolink NVR channels using the browser-based [`flv.js`](https://github.com/bilibili/flv.js) player. Everything runs locally in the browser—just open `index.html` in Chrome, Edge, or Firefox.
+A lightweight viewer plus Python proxy that renders up to four Reolink NVR channels using [`flv.js`](https://github.com/bilibili/flv.js). The browser UI lives in `index.html`, while the bundled Flask server (`server.py`) proxies HTTP-FLV traffic from your NVR through ffmpeg so modern browsers can play the streams without fighting CORS or RTMP limitations. Run both pieces on a trusted LAN host and browse to the proxy to watch your feeds.
+## Security Warning ⚠️🚨
+
+- ⚠️🚫 **LAN/VPN only:** Keep the proxy and viewer on a trusted network so HTTP-FLV traffic never touches the public internet.
+- 🔐📛 **Protect credentials:** Store `NVR_USER` / `NVR_PASSWORD` in your shell environment and avoid hardcoding sensitive values in `config.js` or version control.
+
 
 ## Requirements
 
 - Python 3.12+
 - [`ffmpeg`](https://ffmpeg.org/download.html) accessible on your `PATH`
-- [`Flask`](https://flask.palletsprojects.com/) for the proxy (`pip install flask`)
+- Python proxy deps from `requirements.txt` (run `python -m pip install -r requirements.txt` to install Flask 3.1.2 plus the pinned Werkzeug, Click, Jinja2, MarkupSafe, Blinker, and ItsDangerous versions the proxy relies on)
 
 ## Configure
 
-1. Edit `config.js` and update the placeholders:
-   - `nvrIp`: IP or hostname of your Reolink NVR.
-   - `protocol`: `http` or `https` depending on how you expose the `/flv` endpoint (ignored when `useProxy` is `true`).
+1. Copy the template and update the placeholders:
+
+   ```bash
+   cp config.template.js config.js
+   ```
+
+   Then edit `config.js`:
+   - `nvrIp`: IP or hostname of your Reolink NVR (used only for constructing stream names).
    - `port`: The RTMP forwarding port (default is `1935`).
-   - `username` / `password`: The credentials you use for the Reolink web UI. Leave them blank if you provide credentials via the Python proxy env vars described below.
-   - `streamProfile`: `main` (full quality), `ext` (Reolink “extra” profile when available), or `sub` (lower bitrate). You can override this per camera with `streamProfile` inside a camera entry.
-   - `useWorker`: Leave `false` if you see errors coming from a `blob:` URL (some browsers / security settings prevent flv.js workers). Set to `true` only if streams play fine with workers enabled for better CPU usage.
-   - `useProxy` / `proxyOrigin`: Set `useProxy: true` when you run the Python server; the viewer will then call `/flv` on the proxy origin (`proxyOrigin` overrides the detected `window.location.origin` if needed).
+   - `username` / `password`: Optional only if you ever bypass the proxy; normally you should export `NVR_USER` / `NVR_PASSWORD` before running `server.py` so the proxy injects credentials for every request.
+   - `proxyOrigin`: Leave blank to use the detected `window.location.origin`. Set it only if you host the proxy somewhere other than `http://127.0.0.1:8000`.
    - `cameras`: List of channels you want to see. Only the first four entries are rendered, intended for a 2×2 tile view.
 
-Each camera entry should include at least a `channel` number (0-based) and optional `name`, `hasAudio`, `streamProfile`, and `streamName`. Use `streamName` if your Reolink assigns a playpath that does not match the default `channel{channel}_{profile}.bcs`. Example:
+Each camera entry should include at least a `channel` number (0-based) and optional `name`, `hasAudio`, `streamName`, and `streamIndex`. Omit `streamName` to fall back to `channel{channel}_main.bcs`. The viewer automatically sets the FLV `stream` flag to `1` when the name ends with `_sub`; set `streamIndex` to `"0"` or `"1"` explicitly if you need to override that heuristic. Example:
 
 ```js
 {
   name: "Front Door",
   channel: 0,
   hasAudio: false,
-  streamProfile: "sub",
-  streamName: "channel201_sub.bcs"
+  streamName: "channel201_sub.bcs",
+  streamIndex: "1"
 }
 ```
 
-The generated stream URL follows the pattern Reolink uses for HTTP-FLV/RTMP. The `stream` parameter itself contains the playpath *and* the `channel`/`stream` flags, so the proxy can faithfully reconstruct the RTMP URL:
+The browser always calls `/flv` on the proxy origin (defaults to `http://127.0.0.1:8000`). The `stream` parameter itself contains the playpath *and* the `channel`/`stream` flags, so the proxy can faithfully reconstruct the RTMP URL even though the browser never touches the NVR directly:
 
 ```
-http(s)://<origin>/flv?port=1935&app=bcs&stream=channel<channel>_<profile>.bcs%3Fchannel=<channel>%26stream=<0|1>&user=<username>&password=<password>
+http://<proxy-origin>/flv?port=1935&app=bcs&stream=<streamName>.bcs%3Fchannel=<channel>%26stream=<0|1>
 ```
 
 ## Use
 
-1. After editing `config.js`, simply open `index.html` in a supported browser, or run the local proxy outlined below.
-2. Allow the page to auto-play video (stream tiles are muted to satisfy browser policies).
-3. Each tile includes **Reconnect** and **Stop** buttons if a stream needs to be restarted.
-
-## Local-only proxy server
-
-Many browsers will block the direct `http://<nvr-ip>/flv` request because of CORS. Use the bundled Python helper if that happens:
-
-1. Set `useProxy: true` in `config.js`. Leave `proxyOrigin` blank unless you bind the proxy somewhere other than `http://127.0.0.1:8000`.
-2. Install the proxy dependency if you have not already:
+1. **Build a virtual environment**
 
    ```bash
-   pip install flask
+   python -m venv .venv
+   source .venv/bin/activate
+   python -m pip install -r requirements.txt
    ```
 
-3. Provide your credentials via environment variables and start the proxy (this binds to localhost only):
+2. **Configure the viewer** – Copy `config.template.js` to `config.js`, edit it as described above, and keep it out of version control (already handled by `.gitignore`). Leave `proxyOrigin` blank unless you bind the proxy somewhere other than `http://127.0.0.1:8000`.
+3. **Provide credentials via env vars** – for example:
 
    ```bash
-   NVR_USER=admin NVR_PASSWORD='letmein' python3 server.py --nvr-host 192.168.1.126
+   export NVR_USER=admin
+   export NVR_PASSWORD='letmein'
    ```
 
-   Adjust `--rtmp-port` and `--nvr-protocol` if your NVR uses non-default RTMP settings (`rtmp://<host>:1935`). Use `--ffmpeg-bin` to point at a custom ffmpeg binary. You can change the env var names with `--nvr-user-env` / `--nvr-password-env`.
-4. Browse to `http://127.0.0.1:8000/` and the viewer plus `/flv` requests will share the same origin, bypassing the CORS restriction. Leave `nvrIp` in `config.js` set to your actual NVR for display/reference; the proxy CLI flags determine the true upstream.
+   Override the env var names with `--nvr-user-env` / `--nvr-password-env` if needed.
+4. **Execute the Python proxy** – this binds to localhost and pipes RTMP from the NVR through ffmpeg to `/flv`:
 
-If you see `404` or `5xx` statuses in the browser, check the Python server console—each proxied `/flv` request logs the incoming querystring, the parsed params, the exact RTMP URL, and the ffmpeg command so you can confirm the RTMP port, channel index, and credentials are correct.
+   ```bash
+   python server.py --nvr-host 192.168.1.126 --rtmp-port 1935 --nvr-protocol rtmp
+   ```
+
+5. **Connect through the browser** – browse to `http://127.0.0.1:8000/`. The viewer and `/flv` calls will now share the same origin. If streams fail, check the Python console for the reconstructed RTMP URL and ffmpeg command to confirm addresses, ports, and credentials.
 
 ### Manual verification
 
@@ -75,10 +82,15 @@ curl -o test.flv "http://127.0.0.1:8000/flv?port=1935&app=bcs&stream=channel2_ma
 ffprobe -v info -i "http://127.0.0.1:8000/flv?port=1935&app=bcs&stream=channel2_main.bcs&channel=2&stream=0&user=admin&password=letmein"
 ```
 
-Swap in the channel, stream profile, and credentials that match the RTMP URL you have already validated (e.g., via `ffprobe rtmp://...`). Once these commands work, the browser tiles will work as well.
+Swap in the channel, stream name, and credentials that match the RTMP URL you have already validated (e.g., via `ffprobe rtmp://...`). Once these commands work, the browser tiles will work as well.
 
 ## Notes
 
 - Browsers must support Media Source Extensions (Chrome, Edge, Firefox). Safari currently cannot play HTTP-FLV.
+- flv.js runs inline (no Web Worker) to avoid the compatibility issues that some Chromium builds have with worker-based MSE pipelines.
 - If you serve this through HTTPS but your NVR is HTTP-only, your browser will block the mixed-content request. In that case, either host this page over HTTP within your LAN or put the NVR behind an HTTPS-capable proxy.
-- Credentials live in `config.js`. Consider keeping the file outside version control or injecting values at build time if you plan to share this repo.
+
+## Security Warning ⚠️🚨
+
+- ⚠️🚫 **LAN/VPN only:** Keep the proxy and viewer on a trusted network so HTTP-FLV traffic never touches the public internet.
+- 🔐📛 **Protect credentials:** Store `NVR_USER` / `NVR_PASSWORD` in your shell environment and avoid hardcoding sensitive values in `config.js` or version control.
