@@ -89,6 +89,7 @@ Swap in the channel, stream name, and credentials that match the RTMP URL you ha
 - Browsers must support Media Source Extensions (Chrome, Edge, Firefox). Safari currently cannot play HTTP-FLV.
 - flv.js runs inline (no Web Worker) to avoid the compatibility issues that some Chromium builds have with worker-based MSE pipelines.
 - If you serve this through HTTPS but your NVR is HTTP-only, your browser will block the mixed-content request. In that case, either host this page over HTTP within your LAN or put the NVR behind an HTTPS-capable proxy.
+- The bundled proxy shells out to `ffmpeg` to remux RTMP into HTTP-FLV, so you must have an `ffmpeg` binary available on your `PATH`.
 
 ## Security Warning ⚠️🚨
 
