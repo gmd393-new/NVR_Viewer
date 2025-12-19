@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Reolink NVR Viewer</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="app">
+      <section id="camera-grid" class="camera-grid" aria-live="polite"></section>
+      <section class="status" id="status"></section>
+    </main>
+
+    <!-- flv.js from jsDelivr. Needed to play Reolink HTTP-FLV streams in browsers. -->
+    <script src="https://cdn.jsdelivr.net/npm/flv.js@1.6.2/dist/flv.min.js"></script>
+    <!-- Config must be defined before app.js -->
+    <script src="config.js" defer></script>
+    <script src="app.js" defer></script>
+  </body>
+</html>

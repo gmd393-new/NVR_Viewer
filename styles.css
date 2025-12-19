@@ -1,0 +1,84 @@
+:root {
+  --bg: #0f141b;
+  --surface: #1d2530;
+  --surface-muted: #262f3d;
+  --text: #e7eefc;
+  --text-muted: #9ba8c5;
+  --accent: #50c878;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  display: flex;
+  min-height: 100vh;
+  overflow: hidden;
+}
+
+.app {
+  padding: 1rem;
+  width: 100%;
+  height: 100vh;
+  display: grid;
+  grid-template-rows: 1fr auto;
+  gap: 0.75rem;
+}
+
+.camera-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  min-height: 0;
+}
+
+.camera {
+  background: var(--surface);
+  border-radius: 0.75rem;
+  padding: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+}
+
+.camera__title {
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0 0 0.5rem;
+}
+
+.camera video {
+  width: 100%;
+  height: 100%;
+  border-radius: 0.5rem;
+  background: #04070d;
+  object-fit: cover;
+  flex: 1;
+}
+
+.camera video {
+  border: 1px solid var(--surface-muted);
+}
+
+.status {
+  margin: 0;
+  font-size: 0.95rem;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.status__error {
+  color: #ff7373;
+}
